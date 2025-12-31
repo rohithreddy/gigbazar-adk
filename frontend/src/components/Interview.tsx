@@ -8,13 +8,15 @@ import './Interview.scss';
 
 interface InterviewProps {
     topic: string;
-    onEndInterview: () => void;
+    onEndInterview: (transcript?: string) => void;
     // Assuming backend is at localhost:8000 by default for now, can be configured
     backendUrl?: string;
     userId?: string;
+    jobId?: string; // For job-based interviews
+    candidateName?: string; // For candidate interviews
 }
 
-const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl = "http://localhost:8000", userId }) => {
+const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl = "http://localhost:8000", userId, jobId, candidateName }) => {
     // Track messages for persistence
     const [messages, setMessages] = useState<any[]>([]);
     // Use a ref to access latest messages in callbacks without re-creating them
@@ -48,10 +50,15 @@ const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl
             try {
                 // Construct the HTTP URL from the backendUrl (handling potential ws:// prefix if passed from context later)
                 const httpUrl = backendUrl.replace('ws', 'http');
-                const response = await fetch(`${httpUrl}/get_elevenlabs_signed_url`, {
+
+                // Use job-specific endpoint if jobId is provided
+                const endpoint = jobId ? '/get_elevenlabs_signed_url_for_job' : '/get_elevenlabs_signed_url';
+                const body = jobId ? { job_id: jobId } : { agent_id: agentId };
+
+                const response = await fetch(`${httpUrl}${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ agent_id: agentId })
+                    body: JSON.stringify(body)
                 });
 
                 if (response.ok) {
@@ -90,12 +97,23 @@ const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl
             console.error('Failed to start conversation:', error);
             alert('Failed to start conversation. Please check microphone permissions and backend connection.');
         }
-    }, [conversation, backendUrl]);
+    }, [conversation, backendUrl, jobId]);
 
     const stopConversation = useCallback(async () => {
         await conversation.endSession();
 
-        // Save session data to backend
+        // Build transcript from messages
+        const transcript = messagesRef.current
+            .map(msg => `${msg.role || 'unknown'}: ${msg.message || msg.text || ''}`)
+            .join('\n');
+
+        // For job-based interviews, pass transcript to parent
+        if (jobId) {
+            onEndInterview(transcript);
+            return;
+        }
+
+        // Save session data to backend for legacy interviews
         try {
             const httpUrl = backendUrl.replace('ws', 'http');
             const sessionData = {
@@ -114,14 +132,13 @@ const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl
                 body: JSON.stringify(sessionData)
             });
 
-            // Clear messages for next time if needed, or leave them for display
-            // setMessages([]); 
-            // messagesRef.current = [];
+            onEndInterview();
         } catch (err) {
             console.error('Failed to save interview data:', err);
+            onEndInterview();
         }
 
-    }, [conversation, backendUrl, topic]);
+    }, [conversation, backendUrl, topic, jobId, onEndInterview]);
 
     const isConnected = conversation.status === 'connected';
     const isConnecting = conversation.status === 'connecting';
@@ -131,7 +148,7 @@ const Interview: React.FC<InterviewProps> = ({ topic, onEndInterview, backendUrl
             <header>
                 <h2>Mock Interview: {topic}</h2>
                 <div className="header-actions">
-                    <button onClick={onEndInterview} className="end-btn secondary">Back to Dashboard</button>
+                    <button onClick={() => onEndInterview()} className="end-btn secondary">Back to Dashboard</button>
                 </div>
             </header>
 

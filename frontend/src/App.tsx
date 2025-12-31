@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebaseConfig';
+import { Toaster } from 'sonner';
 import './App.scss';
 import Login from './components/Login';
-import Dashboard from './components/Dashboard';
-import Interview from './components/Interview';
+import { HRDashboard } from './components/hr/HRDashboard';
+import { PublicInterview } from './components/PublicInterview';
+import { InterviewDetail } from './components/hr/InterviewDetail';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// Wrapper component to access route params
+function InterviewDetailWrapper({ apiUrl }: { apiUrl: string }) {
+  const { interviewId } = useParams<{ interviewId: string }>();
+  return <InterviewDetail apiUrl={apiUrl} interviewId={interviewId || ''} />;
+}
 
 function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [view, setView] = useState<'dashboard' | 'interview'>('dashboard');
-  const [topic, setTopic] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -22,48 +31,69 @@ function App() {
 
   const handleLogin = (user: any) => {
     // Session set by onAuthStateChanged
-    setView('dashboard');
   };
 
   const handleLogout = () => {
     auth.signOut();
-    setView('dashboard');
-    setTopic('');
   };
 
-  const startInterview = (selectedTopic: string) => {
-    setTopic(selectedTopic);
-    setView('interview');
-  };
-
-  const endInterview = () => {
-    setView('dashboard');
-    setTopic('');
-  };
-
-  if (loading) return <div>Loading...</div>;
-
-  if (!session) {
-    return <Login onLogin={handleLogin} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className="App">
-      {view === 'dashboard' && (
-        <Dashboard
-          onStartInterview={startInterview}
-          onLogout={handleLogout}
-          userId={session.uid}
+    <BrowserRouter>
+      <Toaster position="top-right" />
+      <Routes>
+        {/* Public interview route - no auth required */}
+        <Route path="/interview/:shareToken" element={<PublicInterview apiUrl={API_URL} />} />
+
+        {/* Protected HR routes */}
+        <Route
+          path="/"
+          element={
+            !session ? (
+              <Login onLogin={handleLogin} />
+            ) : (
+              <Navigate to="/hr" replace />
+            )
+          }
         />
-      )}
-      {view === 'interview' && (
-        <Interview
-          topic={topic}
-          onEndInterview={endInterview}
-          userId={session.uid}
+        <Route
+          path="/hr"
+          element={
+            session ? (
+              <HRDashboard
+                userId={session.uid}
+                userEmail={session.email || undefined}
+                userName={session.displayName || undefined}
+                onLogout={handleLogout}
+                apiUrl={API_URL}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
-      )}
-    </div>
+        <Route
+          path="/interview-detail/:interviewId"
+          element={
+            session ? (
+              <InterviewDetailWrapper apiUrl={API_URL} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

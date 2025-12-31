@@ -394,6 +394,24 @@ async def get_elevenlabs_signed_url(request: dict[str, Any]) -> dict[str, str]:
     return engine.get_elevenlabs_signed_url(agent_id=agent_id)
 
 
+@app.post("/get_elevenlabs_signed_url_for_job")
+async def get_elevenlabs_signed_url_for_job(request: dict[str, Any]) -> dict[str, str]:
+    """Proxy for get_elevenlabs_signed_url_for_job - gets signed URL with job-specific agent."""
+    job_id = request.get("job_id")
+    if not job_id:
+        raise HTTPException(status_code=400, detail="Missing job_id")
+
+    engine = _get_agent_engine()
+    # Ensure method exists
+    if not hasattr(engine, "get_elevenlabs_signed_url_for_job"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_elevenlabs_signed_url_for_job not found on agent engine",
+        )
+
+    return engine.get_elevenlabs_signed_url_for_job(job_id=job_id)
+
+
 @app.post("/save_interview_data")
 async def save_interview_data(data: dict[str, Any]) -> dict[str, Any]:
     """Proxy for save_interview_data."""
@@ -431,6 +449,200 @@ async def get_user_interviews(user_id: str, limit: int = 50) -> dict[str, Any]:
     result = engine.get_user_interviews(user_id=user_id, limit=limit)
 
     # Check if result contains an error
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+# Job management endpoints
+@app.post("/create_job")
+async def create_job(request: dict[str, Any]) -> dict[str, Any]:
+    """Create a new job posting."""
+    user_id = request.get("user_id")
+    job_data = request.get("job_data")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: user_id")
+    if not job_data:
+        raise HTTPException(status_code=400, detail="Missing required parameter: job_data")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "create_job"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method create_job not found on agent engine",
+        )
+
+    result = engine.create_job(user_id=user_id, job_data=job_data)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/get_jobs")
+async def get_jobs(request: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve all jobs for a user."""
+    user_id = request.get("user_id")
+    limit = request.get("limit", 50)
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: user_id")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "get_jobs"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_jobs not found on agent engine",
+        )
+
+    result = engine.get_jobs(user_id=user_id, limit=limit)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/get_job_by_token")
+async def get_job_by_token(request: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve a job by its share token (public)."""
+    share_token = request.get("share_token")
+
+    if not share_token:
+        raise HTTPException(status_code=400, detail="Missing required parameter: share_token")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "get_job_by_token"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_job_by_token not found on agent engine",
+        )
+
+    result = engine.get_job_by_token(share_token=share_token)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/get_job_by_id")
+async def get_job_by_id(request: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve a job by its ID."""
+    job_id = request.get("job_id")
+
+    if not job_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: job_id")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "get_job_by_id"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_job_by_id not found on agent engine",
+        )
+
+    result = engine.get_job_by_id(job_id=job_id)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+# Interview management endpoints
+@app.post("/create_interview")
+async def create_interview(request: dict[str, Any]) -> dict[str, Any]:
+    """Create a new interview record."""
+    interview_data = request.get("interview_data")
+
+    if not interview_data:
+        raise HTTPException(status_code=400, detail="Missing required parameter: interview_data")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "create_interview"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method create_interview not found on agent engine",
+        )
+
+    result = engine.create_interview(interview_data=interview_data)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/update_interview")
+async def update_interview(request: dict[str, Any]) -> dict[str, Any]:
+    """Update an existing interview."""
+    interview_id = request.get("interview_id")
+    updates = request.get("updates")
+
+    if not interview_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: interview_id")
+    if not updates:
+        raise HTTPException(status_code=400, detail="Missing required parameter: updates")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "update_interview"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method update_interview not found on agent engine",
+        )
+
+    result = engine.update_interview(interview_id=interview_id, updates=updates)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/get_user_interviews_for_jobs")
+async def get_user_interviews_for_jobs(request: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve all interviews for jobs created by user."""
+    user_id = request.get("user_id")
+    limit = request.get("limit", 100)
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: user_id")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "get_user_interviews_for_jobs"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_user_interviews_for_jobs not found on agent engine",
+        )
+
+    result = engine.get_user_interviews_for_jobs(user_id=user_id, limit=limit)
+
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return result
+
+
+@app.post("/get_interview_by_id")
+async def get_interview_by_id(request: dict[str, Any]) -> dict[str, Any]:
+    """Retrieve a single interview by ID."""
+    interview_id = request.get("interview_id")
+
+    if not interview_id:
+        raise HTTPException(status_code=400, detail="Missing required parameter: interview_id")
+
+    engine = _get_agent_engine()
+    if not hasattr(engine, "get_interview_by_id"):
+        raise HTTPException(
+            status_code=404,
+            detail="Method get_interview_by_id not found on agent engine",
+        )
+
+    result = engine.get_interview_by_id(interview_id=interview_id)
+
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
 
