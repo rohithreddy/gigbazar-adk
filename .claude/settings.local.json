@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /home/crash/code/aipartner/pyadk/my-agent/README.md)",
+      "Bash(npx shadcn@latest init -y)"
+    ]
+  }
+}
