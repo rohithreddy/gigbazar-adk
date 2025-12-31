@@ -187,7 +187,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
                         <div className="mt-6 text-center text-sm text-gray-600">
                             <p>Demo credentials for testing:</p>
-                            <p className="text-xs text-gray-500 mt-1">Email: demo@gigbazar.ai | Password: demo123</p>
+                            <p className="text-xs text-gray-500 mt-1">Email: crash@myhoma.in | Password: crash1234</p>
                         </div>
                     </CardContent>
                 </Card>
